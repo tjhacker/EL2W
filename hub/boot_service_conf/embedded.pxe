@@ -1,0 +1,10 @@
+#!ipxe
+
+dhcp
+set http-proxy http://juno.load:3128
+
+prompt --key 0x02 --timeout 2000 Press Ctrl-B for the iPXE command line... && shell ||
+
+#chain --autofree http://boot.netboot.xyz
+:retry_chain
+chain --autofree http://juno.load/boot_options.php || goto retry_chain

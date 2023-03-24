@@ -1,0 +1,8 @@
+2c2,6
+< auth       substack     password-auth
+---
+> #auth       substack     password-auth
+> auth       required     pam_sepermit.so
+> auth       required     pam_env.so
+> auth       sufficient   pam_duo.so
+> auth       required     pam_deny.so

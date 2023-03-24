@@ -1,0 +1,93 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Need Vagrant level variable
+# 1. String identifying host interface for Vagrant to create bridge to
+BRIDGE_INTERFACE = "enp5s0f0"
+
+# 2. Local non routable IPsec protected IP address - should be e.g. 192.0.0.0/8
+LOCAL_IRISIP = "192.100.88.10"
+
+# 3. Role expected from the VM brought up by the Vagrantfile, options: jumphost, dnsmasq
+VAGRANT_ROLE = "dnsmasq"
+
+# 4. ssh port that is not 22
+SSH_PORT = 59842
+
+Vagrant.configure("2") do |config|
+
+  # Vagrant box configuration
+  config.vm.box = "generic/rocky8"
+  config.vm.box_check_update = true
+
+  # VM network configuration
+  config.vm.network "forwarded_port", guest: 59842, host: 12345
+  config.vm.network "public_network", bridge: BRIDGE_INTERFACE
+  config.vm.network "private_network", ip: LOCAL_IRISIP, virtualbox__intnet: "mars irisnet"
+
+  # Set network interfaces promiscumous mode to "Allow all"
+  config.vm.provider "virtualbox" do |vb|
+    vb.cpus = 4
+    vb.memory = "2048"
+    vb.name = "EL2W-Hub"
+    vb.customize ["modifyvm", :id, "--nicpromisc1", "allow-all"]
+    vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+    vb.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"]
+  end
+  
+  # Bring files from vagrant into VM
+  config.vm.synced_folder "./certbundle", "/vagrant_data"
+  config.vm.synced_folder "./isos", "/tmp/isos"
+
+  # Inline shell script
+  config.vm.provision "shell", inline: <<-SHELL
+
+    # State 0 - bind variables and select role varaible
+    echo "Role is" #{VAGRANT_ROLE}
+    echo "SSH port is" #{SSH_PORT}
+    echo "LOCAL IRIS IP is" #{LOCAL_IRISIP}
+    
+    # Stage 1 - run OS updates and package installations
+    yum -y update
+
+    # Config installation for duo_unix
+    cp /vagrant_data/duo_conf/duosecurity.repo /etc/yum.repos.d/
+    rpm --import https://duo.com/DUO-GPG-PUBLIC-KEY.asc
+
+    # Centos7 yum install required packages
+    yum -y install policycoreutils-python-utils duo_unix virt-manager libvirt-client fail2ban
+
+    # Enable fail2ban for more protection against offensive
+    systemctl enable fail2ban
+    systemctl start fail2ban
+
+    # Stage 3 - set up network security rules
+    # Network routing rules and DNS
+    ip addr flush dev eth1
+    ##### change the private IP address and routing rule to suit local network configuration #####
+    ip addr add 10.210.210.41/24 dev eth1
+    ip route delete default
+    ip route add default via 10.210.210.1 dev eth1
+
+    # Duo unix two-factor authentication setup
+    cp -f /vagrant_data/duo_conf/pam_duo.conf /etc/duo/pam_duo.conf
+    patch /etc/pam.d/sshd /vagrant_data/duo_conf/pam-sshd.patch
+    
+    sed -i "s/^#Port 22*$/Port #{SSH_PORT}/" /etc/ssh/sshd_config
+    sed -i 's/^ChallengeResponseAuthentication no/ChallengeResponseAuthentication yes/' /etc/ssh/sshd_config
+    semanage port -a -t ssh_port_t -p tcp #{SSH_PORT}
+    systemctl restart sshd # command to get into VM is " vagrant ssh -- '-p 12345' "
+
+    # Firewall rules to allow customized ssh port
+    firewall-cmd --permanent --add-port=#{SSH_PORT}/tcp --zone=dmz    # ssh on alternative port
+    firewall-cmd --permanent --add-port=#{SSH_PORT}/tcp --zone=public # ssh on alternative port
+    systemctl stop NetworkManager
+    firewall-cmd --reload
+    systemctl start NetworkManager
+
+    cd /vagrant_data
+    sh -x ./doit.sh
+    echo "Hub is up."
+
+  SHELL
+end
