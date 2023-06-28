@@ -1,0 +1,22 @@
+[2023-03-16 00:41:08] Run timing test for 10 iterations...
+[2023-03-16 00:41:08] Run 1 vagrant up
+[2023-03-16 01:07:27] Run 1 duration: 1579 sec
+[2023-03-16 01:07:35] Run 2 vagrant up
+[2023-03-16 01:30:31] Run 2 duration: 1376 sec
+[2023-03-16 01:30:39] Run 3 vagrant up
+[2023-03-16 01:52:35] Run 3 duration: 1316 sec
+[2023-03-16 01:52:43] Run 4 vagrant up
+[2023-03-16 02:16:33] Run 4 duration: 1430 sec
+[2023-03-16 02:16:40] Run 5 vagrant up
+[2023-03-16 02:37:52] Run 5 duration: 1272 sec
+[2023-03-16 02:38:01] Run 6 vagrant up
+[2023-03-16 03:00:46] Run 6 duration: 1365 sec
+[2023-03-16 03:00:53] Run 7 vagrant up
+[2023-03-16 03:22:55] Run 7 duration: 1322 sec
+[2023-03-16 03:23:02] Run 8 vagrant up
+[2023-03-16 03:45:06] Run 8 duration: 1324 sec
+[2023-03-16 03:45:13] Run 9 vagrant up
+[2023-03-16 04:08:12] Run 9 duration: 1379 sec
+[2023-03-16 04:08:19] Run 10 vagrant up
+[2023-03-16 04:29:00] Run 10 duration: 1241 sec
+[2023-03-16 04:29:07] sum: 13604.00 sec, mean: 1360.40 sec, standard deviation: 94.33 sec

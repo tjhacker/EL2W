@@ -1,0 +1,2 @@
+[program:reload-dhcpopts]
+command=bash -c 'while inotifywait -q -e close_write /var/dhcpopts/dhcpopts; do kill -HUP `cat /var/run/dnsmasq.pid`; done'

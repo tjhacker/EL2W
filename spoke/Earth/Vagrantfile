@@ -1,0 +1,69 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Vagrant level variable
+# 1. String identifying host interface for Vagrant to create bridge to
+# BRIDGE_INTERFACE = "Realtek USB GbE Family Controller"
+BRIDGE_INTERFACE = "enp4s0"
+
+# 2. Local non routable IPsec protected IP address - should be e.g. 192.0.0.0/8
+LOCAL_IRISIP = "192.100.42.20"
+
+# 3. Role expected from the VM brought up by the Vagrantfile, options: jumphost, dnsmasq
+VAGRANT_ROLE = "jumphost"
+
+Vagrant.configure("2") do |config|
+
+  # Vagrant box configuration
+  config.vm.box = "generic/rocky8"
+  config.vm.box_check_update = true
+
+  # VM network configuration
+  config.vm.network "public_network", bridge: BRIDGE_INTERFACE
+  config.vm.network "private_network", ip: LOCAL_IRISIP, virtualbox__intnet: "earth irisnet"
+
+  # This is for the jumphost
+  config.vm.provider "virtualbox" do |vb|
+    vb.cpus = 2
+    vb.memory = "2048"
+    vb.name = "EL2W-Spoke-Earth"
+    vb.customize ["modifyvm", :id, "--nicpromisc1", "allow-all"]
+    vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+    vb.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"]
+  end
+
+  # Bring files from vagrant into VM
+  config.vm.synced_folder "./certbundle", "/vagrant_data"
+
+  # Run shell configuration commands for each VM
+  config.vm.provision "shell", inline: <<-SHELL
+
+    # State 0 - bind variables and select role varaible
+    echo "Role is" #{VAGRANT_ROLE}
+    echo "LOCAL IRIS IP is" #{LOCAL_IRISIP}
+    
+    # Stage 1 - run OS updates and package installations
+    yum -y update
+
+    # Stage 2 yum install packages
+    yum -y install policycoreutils-python-utils fail2ban
+
+    # Enable fail2ban for more protection against offensive
+    systemctl enable fail2ban
+    systemctl start fail2ban
+
+    # Stage 3 - set up network security rules
+    firewall-cmd --add-interface=eth0 --zone=dmz --permanent
+    firewall-cmd --add-service=ssh --zone=dmz --permanent # to be able to ssh into the system from vagrant
+    systemctl stop NetworkManager
+    firewall-cmd --reload
+    systemctl start NetworkManager
+    nmcli con up "System eth0"
+    nmcli general hostname earth.load
+    
+    cd /vagrant_data
+    sh -x ./doit.sh
+    echo "Spoke is up."
+
+  SHELL
+end

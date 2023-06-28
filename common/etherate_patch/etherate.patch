@@ -1,0 +1,1239 @@
+diff -NaurBbdw Etherate/defaults.c Etherate_patch/defaults.c
+--- Etherate/defaults.c	2023-03-06 02:22:12.732345368 +0000
++++ Etherate_patch/defaults.c	2023-03-06 02:25:37.924449330 +0000
+@@ -61,7 +58,8 @@
+     eth->frm.lsp_src_mac[4]    = 0x00;
+     eth->frm.lsp_src_mac[5]    = 0x00;
+     eth->frm.mpls_labels       = 0;
+-    for (uint16_t i = 0; i<MPLS_LABELS_MAX; i += 1) {
++    for (uint16_t i = 0; i < MPLS_LABELS_MAX; i += 1)
++    {
+         eth->frm.mpls_label[i] = 0;
+         eth->frm.mpls_exp[i]   = 0;
+         eth->frm.mpls_ttl[i]   = 0;
+@@ -88,7 +86,8 @@
+     eth->frm.vlan_id           = VLAN_ID_DEF;
+ 
+     if (eth->frm.rx_buffer == NULL ||
+-        eth->frm.tx_buffer == NULL ) {
++        eth->frm.tx_buffer == NULL)
++    {
+         perror("Couldn't allocate Tx/Rx buffers ");
+         return EXIT_FAILURE;
+     }
+@@ -99,9 +97,8 @@
+     eth->mtu_test.mtu_tx_min = 1400;
+     eth->mtu_test.mtu_tx_max = 1500;
+ 
+-
+     eth->qm_test.enabled          = false;
+-    eth->qm_test.delay_test_count = 10000;
++    eth->qm_test.delay_test_count = 10;
+     eth->qm_test.interval         = 1000;
+     eth->qm_test.interval_sec     = 0;
+     eth->qm_test.interval_nsec    = 0;
+@@ -124,7 +121,8 @@
+     eth->qm_test.timeout_count    = 0;
+     eth->qm_test.delay_results    = (double*)calloc(eth->qm_test.delay_test_count,sizeof(double));
+ 
+-    if (eth->qm_test.delay_results == NULL) {
++    if (eth->qm_test.delay_results == NULL)
++    {
+         perror("Couldn't allocate quality test results buffer ");
+         return EXIT_FAILURE;
+     }
+@@ -147,7 +144,8 @@
+     eth->speed_test.b_speed_max     = 0;
+     eth->speed_test.b_speed_avg     = 0;
+ 
+-    if (eth->speed_test.f_payload == NULL) {
++    if (eth->speed_test.f_payload == NULL)
++    {
+         perror("Couldn't allocate custom frame buffer ");
+         return EXIT_FAILURE;
+     }
+@@ -152,9 +150,9 @@
+         return EXIT_FAILURE;
+     }
+ 
+-
+     eth->intf.if_index = IF_INDEX_DEF;
+-    for (uint16_t i = 0; i<IFNAMSIZ; i += 1) {
++    for (uint16_t i = 0; i < IFNAMSIZ; i += 1)
++    {
+         eth->intf.if_name[i] = 0;
+     }
+     eth->intf.sock_fd = SOCK_FD_DEF;
+@@ -205,12 +199,13 @@
+         eth->frm.tx_data[i] = (uint8_t)((255.0*rand()/(RAND_MAX+1.0)));
+     }
+ 
+-    if (eth->app.broadcast == true) {
++    if (eth->app.broadcast == true)
++    {
+ 
+         // Broadcast to populate any switch/MAC tables
+         int16_t broad_ret = broadcast_etherate(eth);
+-        if (broad_ret != 0) return broad_ret;
+-
++        if (broad_ret != 0)
++            return broad_ret;
+     }
+     
+     build_headers(&eth->frm);
+@@ -241,7 +232,8 @@
+         static const int32_t sock_qdisc_bypass = 1;
+         int32_t sock_qdisc_ret = setsockopt(intf->sock_fd, SOL_PACKET, PACKET_QDISC_BYPASS, &sock_qdisc_bypass, sizeof(sock_qdisc_bypass));
+ 
+-        if (sock_qdisc_ret == -1) {
++    if (sock_qdisc_ret == -1)
++    {
+             perror("Error enabling QDISC bypass on socket ");
+             return EXIT_FAILURE;
+         }
+@@ -258,9 +246,9 @@
+ int16_t set_sock_int(struct etherate *eth)
+ {
+ 
+-
+     // If the user has supplied an interface index try to use that
+-    if (eth->intf.if_index != IF_INDEX_DEF) {
++    if (eth->intf.if_index != IF_INDEX_DEF)
++    {
+ 
+         eth->intf.if_index = set_sock_interface_index(&eth->intf);
+         if (eth->intf.if_index <= 0)
+@@ -273,7 +261,9 @@
+         }
+ 
+     // Or if the user has supplied an interface name try to use that        
+-    } else if (strcmp((char*)eth->intf.if_name, "") != 0) {
++    }
++    else if (strcmp((char *)eth->intf.if_name, "") != 0)
++    {
+ 
+         eth->intf.if_index = set_sock_interface_name(&eth->intf);
+         if (eth->intf.if_index <= 0)
+@@ -286,7 +276,9 @@
+         }
+ 
+     // Otherwise, try and best guess an interface
+-    } else if (eth->intf.if_index == IF_INDEX_DEF) {
++    }
++    else if (eth->intf.if_index == IF_INDEX_DEF)
++    {
+ 
+         eth->intf.if_index = get_sock_interface(&eth->intf);
+         if (eth->intf.if_index <= 0)
+@@ -323,7 +313,8 @@
+                              (struct sockaddr *)&eth->intf.sock_addr,
+                              sizeof(eth->intf.sock_addr));
+ 
+-    if (sock_bind == -1) {
++    if (sock_bind == -1)
++    {
+         perror("Can't bind socket to interface ");
+         return EXIT_FAILURE;
+     }
+diff -NaurBbdw Etherate/etherate.c Etherate_patch/etherate.c
+--- Etherate/etherate.c	2023-03-06 02:22:12.736345447 +0000
++++ Etherate_patch/etherate.c	2023-03-06 02:25:38.960470144 +0000
+@@ -74,9 +72,8 @@
+ #include "speed_tests.c"
+ #include "tests.c"
+ 
+-
+-
+-int main(int argc, char *argv[]) {
++int main(int argc, char *argv[])
++{
+ 
+     struct etherate eth;
+ 
+@@ -92,9 +89,9 @@
+         if (def_ret != EXIT_SUCCESS)
+             return def_ret;
+ 
+-
+         // Check for root privs, low level socket access is required
+-        if (getuid() != 0) {
++        if (getuid() != 0)
++        {
+             printf("Must be root to use this program!\n");
+             reset_app(&eth);
+             return EX_NOPERM;
+@@ -100,16 +97,19 @@
+             return EX_NOPERM;
+         }
+ 
+-
+         // Parse CLI arguments
+         int16_t cli_ret = cli_args(argc, argv, &eth);
+ 
+-        if (cli_ret != EXIT_SUCCESS) {
++        if (cli_ret != EXIT_SUCCESS)
++        {
+             reset_app(&eth);
+         
+-            if (cli_ret == RET_EXIT_APP) {
++            if (cli_ret == RET_EXIT_APP)
++            {
+                 return EXIT_SUCCESS;
+-            } else {
++            }
++            else
++            {
+                 return cli_ret;
+             }
+         }
+@@ -114,9 +114,9 @@
+             }
+         }
+ 
+-
+         // Set up a new socket bind to an interface
+-        if (setup_sock(&eth.intf) != EXIT_SUCCESS) {
++        if (setup_sock(&eth.intf) != EXIT_SUCCESS)
++        {
+             int32_t errnum = errno;
+             reset_app(&eth);
+             return errnum;
+@@ -162,15 +158,15 @@
+         // Pause to allow the RX host to process the sent settings
+         sleep(2);
+ 
+-
+         // If this is the RX host, rebuild the test frame headers incase any
+         // settings have been changed by the TX host
+-        if (eth.app.tx_mode != true) build_headers(&eth.frm);
+-
++        if (eth.app.tx_mode != true)
++            build_headers(&eth.frm);
+ 
+         // If using frame pacing, calculate the inter-frame delay now that the
+         // frame size is no longer subject to change
+-        if (eth.params.f_tx_dly != F_TX_DLY_DEF) {
++        if (eth.params.f_tx_dly != F_TX_DLY_DEF)
++        {
+             long double f_tx_max  = floor((eth.params.f_tx_dly / (eth.params.f_size_total * 8)));
+             
+             eth.params.f_tx_dly = (1000000000 / f_tx_max) * 1e-9;
+@@ -179,29 +175,31 @@
+                    f_tx_max, eth.params.f_tx_dly);
+         }
+ 
+-
+         // Try to measure the TX to RX one way delay
+-        if (eth.app.tx_delay == true)
+-            delay_test(&eth);
+-
++        //       if (eth.app.tx_delay == true)
++        //            delay_test(&eth);
+ 
+         // Start the chosen test
+         eth.app.ts_now =   time(0);
+         eth.app.tm_local = localtime(&eth.app.ts_now);
+         printf("Starting test on %s\n", asctime(eth.app.tm_local));   
+ 
+-        if (eth.mtu_test.enabled) {
++        if (eth.mtu_test.enabled)
++        {
+             mtu_sweep_test(&eth);
+-
+-        } else if (eth.qm_test.enabled) {
++        }
++        else if (eth.qm_test.enabled)
++        {
+             latency_test(&eth);
+-
+-        } else if (eth.speed_test.f_payload_size > 0) {
++        }
++        else if (eth.speed_test.f_payload_size > 0)
++        {
+             eth.speed_test.enabled = true;
+             printf("Frame size is %" PRId16 " bytes\n", eth.params.f_size_total);
+             send_custom_frame(&eth);
+-
+-        } else {
++        }
++        else
++        {
+             eth.speed_test.enabled = true;
+             printf("Frame size is %" PRId16 " bytes\n", eth.params.f_size_total);
+             speed_test_prep(&eth);
+@@ -212,19 +209,15 @@
+         eth.app.tm_local = localtime(&eth.app.ts_now);
+         printf("Ending test on %s\n\n", asctime(eth.app.tm_local));
+ 
+-
+         if (remove_interface_promisc(&eth.intf) != EXIT_SUCCESS)
+             printf("Error leaving promiscuous mode\n");
+ 
+         reset_app(&eth);
+ 
+         // End the testing loop if TX host
+-        if (eth.app.tx_mode == true) testing = false;
+-
+-
++        if (eth.app.tx_mode == true)
++            testing = false;
+     }
+ 
+-
+     return EXIT_SUCCESS;
+-
+ }
+diff -NaurBbdw Etherate/tests.c Etherate_patch/tests.c
+--- Etherate/tests.c	2023-03-06 02:22:12.744345607 +0000
++++ Etherate_patch/tests.c	2023-03-06 02:25:39.816487343 +0000
+@@ -27,9 +27,13 @@
+  *
+  */
+ 
+-
+-
+ #include "tests.h"
++#include <signal.h>
++#include <poll.h>
++
++struct pollfd readpoll;
++int timeout_val_msecs = 5000;
++int rc;
+ 
+ void delay_test(struct etherate *eth)
+ {
+@@ -37,16 +41,15 @@
+ // to estimate the delay between the hosts. Then the process is repeated so
+ // an average can be taken
+ 
+-
+     long double UPTIME;
+     uint64_t    tx_uptime;
+     int16_t     tx_ret;
+     int16_t     rx_len;
+     uint8_t     WAITING;
+-
++    int retransmit;
++    int count;
+ 
+     build_tlv(&eth->frm, htons(TYPE_TESTFRAME), htonl(VALUE_TEST_SUB_TLV));
+-
+     printf("Calculating delay between hosts...\n");
+ 
+     if (eth->app.tx_mode == true)
+@@ -51,9 +54,9 @@
+ 
+     if (eth->app.tx_mode == true)
+     {
+-
+         for (uint32_t i=0; i < eth->qm_test.delay_test_count; i += 1)
+         {
++            retransmit = 1;
+ 
+             // Get the current time and send it to Rx
+             clock_gettime(CLOCK_MONOTONIC_RAW, &eth->qm_test.ts_rtt);
+@@ -84,6 +86,8 @@
+ 
+             build_sub_tlv(&eth->frm, htons(TYPE_DELAY2), htonll(tx_uptime));
+ 
++            while (retransmit == 1)
++            {
+             tx_ret = send(eth->intf.sock_fd,
+                           eth->frm.tx_buffer,
+                           eth->frm.length + eth->frm.sub_tlv_size,
+@@ -95,11 +99,28 @@
+                 return;
+             }
+ 
+-
+             // Wait for Rx to send back delay value
+             WAITING = true;
+             while (WAITING)
+             {
++                    ioctl(eth->intf.sock_fd, FIONREAD, &count);
++                    if (count == 0)
++                    {
++                        usleep(500000);
++                    }
++                    printf("Count %d\n", count);
++                    readpoll.fd = eth->intf.sock_fd;
++                    readpoll.events = POLLIN;
++
++                    rc = poll(&readpoll, 1, timeout_val_msecs);
++                    /* printf ("Pollrc: %d\n", rc); */
++                    if (rc == 0)
++                    {
++                        printf("Poll timeout. Exiting.\n");
++                        signal_handler(SIGINT);
++                        /* exit(1); */
++                    }
++
+                 rx_len = read(eth->intf.sock_fd,
+                               eth->frm.rx_buffer,
+                               eth->params.f_size_total);
+@@ -106,24 +127,38 @@
+ 
+                 if (rx_len > 0)
+                 {
+-
+                     if (ntohs(*eth->frm.rx_sub_tlv_type) == TYPE_DELAY)
+                     {
+                         eth->qm_test.delay_results[i] = (ntohll(*eth->frm.rx_sub_tlv_value) / 1000000000.0);
+                         WAITING = false;
+                     }
+-
+-                } else if (rx_len < 0) {
+-
++                    }
++                    else if (rx_len < 0)
++                    {
+                     perror("Delay test Tx error ");
+                     return;
+-
++                        rx_len = read(eth->intf.sock_fd,
++                                      eth->frm.rx_buffer,
++                                      eth->params.f_size_total);
++                        if (rx_len > 0)
++                        {
++                            retransmit = 0;
++                            if (ntohs(*eth->frm.rx_sub_tlv_type) == TYPE_DELAY)
++                            {
++                                eth->qm_test.delay_results[i] = (ntohll(*eth->frm.rx_sub_tlv_value) / 1000000000.0);
++                                WAITING = false;
+                 }
+-
+             }
+-
++                        else if (rx_len < 0)
++                        {
++                            perror("Delay test Tx error ");
++                            retransmit = 1;
++                            // return;
++                        }
++                    }
++                } // retransmit
+         } // End delay Tx loop
+-
++        }
+ 
+         // Let the receiver know all delay values have been received
+         build_tlv(&eth->frm, htons(TYPE_TESTFRAME), htonl(VALUE_DELAY_END));
+@@ -154,11 +188,10 @@
+ 
+         printf("Tx to Rx delay calculated as %.9f seconds\n\n", delay_avg);
+ 
+-
+     // This is the Rx host
+-    } else {
+-
+-
++    }
++    else
++    {
+         // These values are used to calculate the delay between Tx and Rx hosts
+         eth->qm_test.time_tx_1 = (double*)calloc(eth->qm_test.delay_test_count, sizeof(double));
+         eth->qm_test.time_tx_2 = (double*)calloc(eth->qm_test.delay_test_count, sizeof(double));
+@@ -181,10 +214,17 @@
+         uint32_t delay_index = 0;
+         
+         WAITING = true;
+-
+         while(WAITING)
+         {
+ 
++            printf("read two\n");
++            ioctl(eth->intf.sock_fd, FIONREAD, &count);
++            if (count == 0)
++            {
++                usleep(500000);
++            }
++            printf("Count %d\n", count);
++
+             rx_len = read(eth->intf.sock_fd,
+                           eth->frm.rx_buffer,
+                           eth->params.f_size_total);
+@@ -199,11 +238,9 @@
+                 eth->qm_test.time_rx_1[delay_index] = eth->qm_test.ts_rtt.tv_sec + ((double)eth->qm_test.ts_rtt.tv_nsec * 1e-9);
+                 // Record the Tx value received
+                 eth->qm_test.time_tx_1[delay_index] = (ntohll(*eth->frm.rx_sub_tlv_value) / 1000000000.0);
+-
+-
+-            } else if (ntohs(*eth->frm.rx_sub_tlv_type) == TYPE_DELAY2) {
+-
+-
++            }
++            else if (ntohs(*eth->frm.rx_sub_tlv_type) == TYPE_DELAY2)
++            {
+                 // Grab the Rx time and sent Tx value for the second time
+                 clock_gettime(CLOCK_MONOTONIC_RAW, &eth->qm_test.ts_rtt);
+                 eth->qm_test.time_rx_2[delay_index] = eth->qm_test.ts_rtt.tv_sec + ((double)eth->qm_test.ts_rtt.tv_nsec * 1e-9);
+@@ -214,11 +251,13 @@
+                 eth->qm_test.time_rx_diff[delay_index] = eth->qm_test.time_rx_2[delay_index] - eth->qm_test.time_rx_1[delay_index];
+ 
+                 // Rarely a negative value is calculated
+-                if (eth->qm_test.time_rx_diff[delay_index] - eth->qm_test.time_tx_diff[delay_index] > 0) {
++                if (eth->qm_test.time_rx_diff[delay_index] - eth->qm_test.time_tx_diff[delay_index] > 0)
++                {
+                     eth->qm_test.delay_results[delay_index] = eth->qm_test.time_rx_diff[delay_index] - eth->qm_test.time_tx_diff[delay_index];
+                 // This value returned is minus and thus invalid
+-                } else {
+-
++                }
++                else
++                {
+                     eth->qm_test.delay_results[delay_index] = 0;
+                 }
+ 
+@@ -238,12 +276,10 @@
+                     return;
+                 }
+ 
+-
+                 delay_index += 1;
+-
+-
+-            } else if (ntohl(*eth->frm.rx_tlv_value) == VALUE_DELAY_END) {
+-
++            }
++            else if (ntohl(*eth->frm.rx_tlv_value) == VALUE_DELAY_END)
++            {
+                 WAITING = false;
+ 
+                 double delay_avg = 0;
+@@ -276,38 +309,32 @@
+         eth->qm_test.time_rx_diff = NULL;
+ 
+     } // End of Rx mode
+-
+ }
+ 
+-
+-
+ void mtu_sweep_test(struct etherate *eth)
+ {
+-
+     // Check the interface MTU
+     int32_t phy_mtu = get_interface_mtu_by_name(&eth->intf);
+ 
+-    if (eth->mtu_test.mtu_tx_max > phy_mtu) {
+-
++    if (eth->mtu_test.mtu_tx_max > phy_mtu)
++    {
+         printf("Running MTU sweep from %" PRIu16 " to %" PRIi32 " (interface max)\n",
+                eth->mtu_test.mtu_tx_min, phy_mtu);
+         eth->mtu_test.mtu_tx_max = phy_mtu;
+-
+-    } else {
+-
++    }
++    else
++    {
+         printf("Running MTU sweep from %" PRIu16 " to %" PRIu16 "\n",
+                eth->mtu_test.mtu_tx_min, eth->mtu_test.mtu_tx_max);
+-    
+     }
+ 
+-
+     int16_t tx_ret = 0;
+     int16_t rx_len = 0;
+ 
+     build_tlv(&eth->frm, htons(TYPE_TESTFRAME), htonl(VALUE_TEST_SUB_TLV));
+ 
+-    if (eth->app.tx_mode == true) {
+-
++    if (eth->app.tx_mode == true)
++    {
+         uint16_t mtu_tx_current   = 0;
+         uint16_t mtu_ack_previous = 0;
+         uint16_t mtu_ack_current  = 0;
+@@ -330,8 +356,9 @@
+             {
+                 perror("MTU test Tx error ");
+                 return;
+-
+-            } else {
++            }
++            else
++            {
+                 eth->params.f_tx_count += 1;
+             }
+ 
+@@ -351,9 +375,8 @@
+                               eth->mtu_test.mtu_tx_max,
+                               MSG_DONTWAIT);
+ 
+-                if (rx_len > 0) {
+-
+-
++                if (rx_len > 0)
++                {
+                     if (ntohl(*eth->frm.rx_tlv_value) == VALUE_TEST_SUB_TLV &&
+                         ntohs(*eth->frm.rx_sub_tlv_type) == TYPE_ACKINDEX)
+                     {
+@@ -367,29 +389,38 @@
+                             eth->mtu_test.largest = mtu_ack_current;
+                         }
+ 
+-
+                         if (mtu_ack_current < mtu_ack_previous)
+                         {
+                             // Frame received out of order, later than expected
+                             eth->params.f_rx_late += 1;
+-                        } else if (mtu_ack_previous == 0) {
++                        }
++                        else if (mtu_ack_previous == 0)
++                        {
+                             // First frame
+                             eth->params.f_rx_ontime += 1;
+                             mtu_ack_previous = mtu_ack_current;
+-                        } else if (mtu_ack_current > (mtu_ack_previous + 2)) {
++                        }
++                        else if (mtu_ack_current > (mtu_ack_previous + 2))
++                        {
+                             // Frame received out of order, earlier than expected
+                             eth->params.f_rx_early += 1;
+                             mtu_ack_previous = mtu_ack_current;
+-                        } else if (mtu_ack_current == (mtu_ack_previous + 1) &&
+-                                   mtu_ack_current < eth->mtu_test.mtu_tx_max) {
++                        }
++                        else if (mtu_ack_current == (mtu_ack_previous + 1) &&
++                                 mtu_ack_current < eth->mtu_test.mtu_tx_max)
++                        {
+                             // Fame received in order
+                             eth->params.f_rx_ontime += 1;
+                             mtu_ack_previous = mtu_ack_current;
+                             WAITING = false;
+-                        } else if (mtu_ack_current == (mtu_ack_previous + 1)) {
++                        }
++                        else if (mtu_ack_current == (mtu_ack_previous + 1))
++                        {
+                             // Frame received in order
+                             eth->params.f_rx_ontime += 1;
+-                        } else if (mtu_ack_current == mtu_ack_previous) {
++                        }
++                        else if (mtu_ack_current == mtu_ack_previous)
++                        {
+                             // Frame received in order
+                             eth->params.f_rx_ontime += 1;
+                         }
+@@ -394,16 +425,15 @@
+                             eth->params.f_rx_ontime += 1;
+                         }
+ 
+-
+                     // A non-test frame was received
+-                    } else {
+-
++                    }
++                    else
++                    {
+                         eth->params.f_rx_other += 1;
+-
+                     }
+-
+-
+-                } else { // rx_len > 0
++                }
++                else
++                { // rx_len > 0
+                     if (errno != EAGAIN || errno != EWOULDBLOCK)
+                     {
+                         perror("Speed test Tx error ");
+@@ -410,24 +440,19 @@
+                         return;
+                     }
+                 }
+-
+                 // If 1 second has passed inside this loop,
+                 // Assume the ACK is lost/dropped
+                 if ((eth->params.current_time.tv_sec - 
+-                     eth->params.elapsed_time.tv_sec) >= 1) WAITING = false;
+-
++                     eth->params.elapsed_time.tv_sec) >= 1)
++                    WAITING = false;
+             } // End of WAITING
+-
+-            
+         } // End of Tx transmit
+-
+         printf("MTU sweep test complete\n");
+         mtu_sweep_test_results(eth);
+-
+-
++    }
+     // Running in Rx mode
+-    } else {
+-
++    else
++    {
+         uint32_t mtu_rx_previous = 0;
+         uint32_t mtu_rx_current  = 0;
+         uint8_t  WAITING         = true;
+@@ -452,8 +474,8 @@
+                               eth->mtu_test.mtu_tx_max,
+                               MSG_DONTWAIT);
+ 
+-                if (rx_len > 0) {
+-
++                if (rx_len > 0)
++                {
+                     if (ntohl(*eth->frm.rx_tlv_value) == VALUE_TEST_SUB_TLV &&
+                         ntohs(*eth->frm.rx_sub_tlv_type) == TYPE_FRAMEINDEX)
+                     {
+@@ -481,7 +500,9 @@
+                             {
+                                 perror("MTU test Tx error ");
+                                 return;
+-                            } else {
++                            }
++                            else
++                            {
+                                 eth->params.f_tx_count += 1;
+                             }
+ 
+@@ -485,33 +506,41 @@
+                                 eth->params.f_tx_count += 1;
+                             }
+ 
+-
+                         } // mtu_rx_current > eth->mtu_test.largest
+ 
+-
+                         if (mtu_rx_current < mtu_rx_previous)
+                         {
+                             // Frame received out of order, later than expected
+                             eth->params.f_rx_late += 1;
+-                        } else if (mtu_rx_previous == 0) {
++                        }
++                        else if (mtu_rx_previous == 0)
++                        {
+                             // First frame
+                             eth->params.f_rx_ontime += 1;
+                             mtu_rx_previous = mtu_rx_current;
+-                        } else if (mtu_rx_current > (mtu_rx_previous + 2)) {
++                        }
++                        else if (mtu_rx_current > (mtu_rx_previous + 2))
++                        {
+                             // Frame received out of order, earlier than expected
+                             eth->params.f_rx_early += 1;
+                             mtu_rx_previous = mtu_rx_current;
+-                        } else if (mtu_rx_current == (mtu_rx_previous + 1) &&
+-                                   mtu_rx_current < eth->mtu_test.mtu_tx_max) {
++                        }
++                        else if (mtu_rx_current == (mtu_rx_previous + 1) &&
++                                 mtu_rx_current < eth->mtu_test.mtu_tx_max)
++                        {
+                             // Frame received in order
+                             eth->params.f_rx_ontime += 1;
+                             mtu_rx_previous = mtu_rx_current;
+                             WAITING = false;
+-                        } else if (mtu_rx_current == (mtu_rx_previous + 1)) {
++                        }
++                        else if (mtu_rx_current == (mtu_rx_previous + 1))
++                        {
+                             // Frame received in order
+                             mtu_rx_previous = mtu_rx_current;
+                             eth->params.f_rx_ontime += 1;
+-                        } else if (mtu_rx_current == mtu_rx_previous) {
++                        }
++                        else if (mtu_rx_current == mtu_rx_previous)
++                        {
+                             // Frame received in order
+                             mtu_rx_previous = mtu_rx_current;
+                             eth->params.f_rx_ontime += 1;
+@@ -516,17 +545,15 @@
+                             mtu_rx_previous = mtu_rx_current;
+                             eth->params.f_rx_ontime += 1;
+                         }
+-
+-
+                     // A non-test frame was recieved
+-                    } else {
+-
++                    }
++                    else
++                    {
+                         eth->params.f_rx_other += 1;
+-
+                     } //End of TEST_FRAME
+-
+-
+-                } else { // rx_len > 0
++                }
++                else
++                { // rx_len > 0
+                     if (errno != EAGAIN || errno != EWOULDBLOCK)
+                     {
+                         perror("Speed test Tx error ");
+@@ -596,21 +609,21 @@
+     long double elapsed_time = 0.0;
+     long double max_time     = 0.0;
+ 
+-
+     uint64_t *testBase, *testMax;
+ 
+-
+     if (eth->app.tx_mode == true)
+     {
+-
+-        if (eth->params.f_count > 0) {   
++        if (eth->params.f_count > 0)
++        {
+             // Testing until N rtt measurements
+             testMax  = &eth->params.f_count;
+             testBase = &eth->params.f_tx_count;
+-
+-        } else {
++        }
++        else
++        {
+             // Testing until N seconds have passed
+-            if (eth->params.f_duration > 0) eth->params.f_duration -= 1;
++            if (eth->params.f_duration > 0)
++                eth->params.f_duration -= 1;
+             testMax  = (uint64_t*)&eth->params.f_duration;
+             testBase = (uint64_t*)&eth->params.s_elapsed;
+         }
+@@ -656,26 +664,22 @@
+                 // Get the current time
+                 clock_gettime(CLOCK_MONOTONIC_RAW, &eth->params.elapsed_time);
+ 
+-
+                 // Check if 1 second has passed to increment test duration
+                 if (eth->params.elapsed_time.tv_sec-
+-                    eth->qm_test.ts_start.tv_sec >= 1) {
+-
++                        eth->qm_test.ts_start.tv_sec >=
++                    1)
++                {
+                     clock_gettime(CLOCK_MONOTONIC_RAW, &eth->qm_test.ts_start);
+-
+                     eth->params.s_elapsed += 1;
+-
+                 }
+-
+-
+                 // Poll has been disabled in favour of a non-blocking recv (for now)
+                 rx_len = recv(eth->intf.sock_fd,
+                               eth->frm.rx_buffer,
+                               eth->params.f_size_total,
+                               MSG_DONTWAIT);
+ 
+-                if (rx_len > 0) {
+-
++                if (rx_len > 0)
++                {
+                     // Received an echo reply/pong
+                     if (ntohl(*eth->frm.rx_tlv_value) == VALUE_TEST_SUB_TLV &&
+                         ntohs(*eth->frm.rx_sub_tlv_type) == TYPE_PONG)
+@@ -697,7 +700,8 @@
+                                 eth->qm_test.rtt_min = rtt;
+                             }
+ 
+-                            if (rtt > eth->qm_test.rtt_max) {
++                            if (rtt > eth->qm_test.rtt_max)
++                            {
+                                 eth->qm_test.rtt_max = rtt;
+                             }
+ 
+@@ -708,7 +712,8 @@
+                                 eth->qm_test.jitter_min = jitter;
+                             }
+ 
+-                            if (jitter && (jitter > eth->qm_test.jitter_max)) {
++                            if (jitter && (jitter > eth->qm_test.jitter_max))
++                            {
+                                 eth->qm_test.jitter_max = jitter;
+                             }
+ 
+@@ -713,15 +718,13 @@
+                             }
+ 
+                             printf ("\t%.9Lfs\t%.9Lfs\n", rtt, jitter);
+-
+                             rtt_prev = rtt;
+-
+                             echo_waiting = false;
+-
+                             eth->params.f_rx_count += 1;
+-
+                         // We may have received a frame with "the right bits in the right place"
+-                        } else {
++                        }
++                        else
++                        {
+                             eth->params.f_rx_other += 1;
+                         }
+ 
+@@ -725,18 +728,19 @@
+                             eth->params.f_rx_other += 1;
+                         }
+ 
+-
+                     // Check if Rx host has quit/died
+-                    } else if (ntohl(*eth->frm.rx_tlv_value) == VALUE_DYINGGASP) {
++                    }
++                    else if (ntohl(*eth->frm.rx_tlv_value) == VALUE_DYINGGASP)
++                    {
+ 
+                         printf("\nRx host has quit\n");
+                         latency_test_results(eth);
+                         return;
+-
+-                    } else {
++                    }
++                    else
++                    {
+ 
+                         eth->params.f_rx_other += 1;
+-
+                     }
+ 
+                 } // rx_len > 0
+@@ -749,8 +752,10 @@
+                 max_time = eth->qm_test.timeout_sec + ((double)eth->qm_test.timeout_nsec * 1e-9);
+ 
+                 // If Tx is waiting for echo reply, check if the echo reply has timed out
+-                if (echo_waiting) {
+-                    if ((elapsed_time - current_time) > max_time) {
++                if (echo_waiting)
++                {
++                    if ((elapsed_time - current_time) > max_time)
++                    {
+ 
+                         printf("\t*\n");
+                         echo_waiting = false;
+@@ -759,11 +763,11 @@
+                     }
+                 }
+ 
+-
+                 // Check if the echo interval has passed (time to send another ping)
+                 max_time = eth->qm_test.interval_sec + ((double)eth->qm_test.interval_nsec * 1e-9);
+ 
+-                if ((elapsed_time - current_time) > max_time) {
++                if ((elapsed_time - current_time) > max_time)
++                {
+                     WAITING  = false;
+                 }
+ 
+@@ -767,28 +771,25 @@
+                     WAITING  = false;
+                 }
+ 
+-
+             } // WAITING=true
+ 
+-
+         } // testBase<=testMax
+-
+         printf("Link quality test complete\n");
+         latency_test_results(eth);
+-
+-
+-    // Else, Rx mode
+-    } else {
+-
+-
+-        if (eth->params.f_count > 0) {   
++    } // Else, Rx mode
++    else
++    {
++        if (eth->params.f_count > 0)
++        {
+             // Testing until N rtt measurements
+             testMax  = &eth->params.f_count;
+             testBase = &eth->params.f_rx_count;
+-
+-        } else {
++        }
++        else
++        {
+             // Testing until N seconds have passed
+-            if (eth->params.f_duration > 0) eth->params.f_duration -= 1;
++            if (eth->params.f_duration > 0)
++                eth->params.f_duration -= 1;
+             testMax  = (uint64_t*)&eth->params.f_duration;
+             testBase = (uint64_t*)&eth->params.s_elapsed;
+         }
+@@ -815,8 +814,9 @@
+                 first_frame = true;
+                 eth->qm_test.test_count += 1;
+                 printf("%" PRIu32 ":\t", eth->qm_test.test_count);
+-
+-            } else {
++            }
++            else
++            {
+ 
+                // If the frame is not an Etherate frame it needs to be
+                // "consumed" otherwise the next MSG_PEEK will show the
+@@ -850,7 +846,9 @@
+ 
+                 // Check if 1 second has passed to increment test duration
+                 if (eth->params.elapsed_time.tv_sec-
+-                    eth->qm_test.ts_start.tv_sec >= 1) {
++                        eth->qm_test.ts_start.tv_sec >=
++                    1)
++                {
+ 
+                     clock_gettime(CLOCK_MONOTONIC_RAW, &eth->qm_test.ts_start);
+ 
+@@ -855,17 +853,15 @@
+                     clock_gettime(CLOCK_MONOTONIC_RAW, &eth->qm_test.ts_start);
+ 
+                     eth->params.s_elapsed += 1;
+-
+                 }
+ 
+-
+                 rx_len = recv(eth->intf.sock_fd,
+                               eth->frm.rx_buffer,
+                               eth->params.f_size_total,
+                               MSG_DONTWAIT);
+ 
+-
+-                if (rx_len > 0) {
++                if (rx_len > 0)
++                {
+ 
+                     if ( ntohl(*eth->frm.rx_tlv_value) == VALUE_TEST_SUB_TLV &&
+                          ntohs(*eth->frm.rx_sub_tlv_type) == TYPE_PING )
+@@ -896,12 +891,13 @@
+ 
+                         interval = fabsl(uptime_2-uptime_1);
+ 
+-
+                         // Interval between receiving this uptime value and the last
+                         if (uptime_1 != 0.0)
+                         {
+                             printf("%.9Lfs\n", interval);
+-                        } else {
++                        }
++                        else
++                        {
+                             printf("0.0\n");
+                         }
+                         uptime_1 = uptime_2;
+@@ -909,31 +905,32 @@
+                         if (interval < eth->qm_test.interval_min)
+                         {
+                             eth->qm_test.interval_min = interval;
+-                        } else if (interval > eth->qm_test.interval_max) {
++                        }
++                        else if (interval > eth->qm_test.interval_max)
++                        {
+                             eth->qm_test.interval_max = interval;
+                         }
+ 
+                         echo_waiting = false;
+                         eth->qm_test.test_count += 1;
+                         printf("%" PRIu32 ":\t", eth->qm_test.test_count);
+-
+-
+-                    } else {
++                    }
++                    else
++                    {
+ 
+                         eth->params.f_rx_other += 1;
+-
+                     }
+-
+                 } // rx_len > 0
+ 
+-
+                 // Check if the echo request has timed out
+                 elapsed_time = eth->params.elapsed_time.tv_sec + ((double)eth->params.elapsed_time.tv_nsec * 1e-9);
+                 current_time = eth->params.current_time.tv_sec + ((double)eth->params.current_time.tv_nsec * 1e-9);
+                 max_time = eth->qm_test.timeout_sec + ((double)eth->qm_test.timeout_nsec * 1e-9);
+                 
+-                if (echo_waiting == true) {
+-                    if ((elapsed_time - current_time) > max_time) {
++                if (echo_waiting == true)
++                {
++                    if ((elapsed_time - current_time) > max_time)
++                    {
+ 
+                         printf("*\n");
+                         eth->qm_test.timeout_count += 1;
+@@ -938,18 +935,16 @@
+                         printf("*\n");
+                         eth->qm_test.timeout_count += 1;
+                         echo_waiting = false;
+-
+                     }
+-                    
+                 }
+ 
+-
+                 // Check if the echo interval has passed (time to receive another ping)
+                 elapsed_time = eth->params.elapsed_time.tv_sec + ((double)eth->params.elapsed_time.tv_nsec * 1e-9);
+                 current_time = eth->params.current_time.tv_sec + ((double)eth->params.current_time.tv_nsec * 1e-9);
+                 max_time = eth->qm_test.interval_sec + ((double)eth->qm_test.interval_nsec * 1e-9);
+ 
+-                if ((elapsed_time - current_time) > max_time) {
++                if ((elapsed_time - current_time) > max_time)
++                {
+                     WAITING = false;
+                 }
+ 
+@@ -997,13 +983,15 @@
+         // Testing until N bytes sent
+         testMax  = &eth->params.f_bytes;
+         testBase = &eth->speed_test.b_tx;
+-
+-    } else if (eth->params.f_count > 0) {   
++    }
++    else if (eth->params.f_count > 0)
++    {
+         // Testing until N frames sent
+         testMax  = &eth->params.f_count;
+         testBase = &eth->params.f_tx_count;
+-
+-    } else if (eth->params.f_duration > 0) {
++    }
++    else if (eth->params.f_duration > 0)
++    {
+         // Testing until N seconds have passed
+         eth->params.f_duration -= 1;
+     }
+@@ -1046,29 +1033,35 @@
+             eth->params.elapsed_time.tv_nsec = eth->params.current_time.tv_nsec;
+ 
+             eth->speed_test.b_tx_speed_prev = 0;
+-
+-        } else {
++        }
++        else
++        {
+ 
+             // Poll has been disabled in favour of a non-blocking recv (for now)
+             rx_len = recv(eth->intf.sock_fd, eth->frm.rx_buffer,
+                           eth->params.f_size_total, MSG_DONTWAIT);
+ 
+-            if (rx_len > 0) {
++            if (rx_len > 0)
++            {
+ 
+                 // Check for dying gasp from Rx host
+                 if (ntohs(*eth->frm.rx_tlv_type) == TYPE_APPLICATION &&
+-                    ntohll(*eth->frm.rx_tlv_value) == VALUE_DYINGGASP) {
++                    ntohll(*eth->frm.rx_tlv_value) == VALUE_DYINGGASP)
++                {
+ 
+                     printf("\nRx host has quit\n");
+                     speed_test_results(eth);
+                     return;
+ 
+                 // Received a non-test frame
+-                } else {
++                }
++                else
++                {
+                     eth->params.f_rx_other += 1;
+                 }
+-
+-            } else { // rx_len <= 0
++            }
++            else
++            { // rx_len <= 0
+                 if (errno != EAGAIN || errno != EWOULDBLOCK)
+                     perror("Speed test Rx error ");
+             }
+@@ -1073,17 +1066,14 @@
+                     perror("Speed test Rx error ");
+             }
+ 
+-
+             // Check if a max speed has been configured
+             if (eth->speed_test.b_tx_speed_max != B_TX_SPEED_MAX_DEF)
+             {
+ 
+                 // Check if sending another frame exceeds the max speed configured
+-                if ((eth->speed_test.b_tx_speed_prev + eth->speed_test.f_payload_size)
+-                    <= eth->speed_test.b_tx_speed_max)
++                if ((eth->speed_test.b_tx_speed_prev + eth->speed_test.f_payload_size) <= eth->speed_test.b_tx_speed_max)
+                 {
+ 
+-
+                     tx_ret = send(eth->intf.sock_fd,
+                                   eth->speed_test.f_payload,
+                                   eth->speed_test.f_payload_size,
+@@ -1089,14 +1079,14 @@
+                                   eth->speed_test.f_payload_size,
+                                   MSG_DONTWAIT);
+ 
+-
+                     if (tx_ret > 0)
+                     {
+                         eth->params.f_tx_count += 1;
+                         eth->speed_test.b_tx += eth->speed_test.f_payload_size;
+                         eth->speed_test.b_tx_speed_prev += eth->speed_test.f_payload_size;
+-
+-                    } else {
++                    }
++                    else
++                    {
+ 
+                         if (errno != EAGAIN || errno != EWOULDBLOCK)
+                         {
+@@ -1103,13 +1093,13 @@
+                             perror("Speed test Tx error ");
+                             return;
+                         }
+-                        
+                     }
+-
+                 }
+ 
+             // Check if a max frames per second limit is configured
+-            } else if (eth->params.f_tx_count_max != F_TX_COUNT_MAX_DEF) {
++            }
++            else if (eth->params.f_tx_count_max != F_TX_COUNT_MAX_DEF)
++            {
+ 
+                 // Check if sending another frame exceeds the max frame rate configured
+                 if ((eth->params.f_tx_count - eth->params.f_tx_count_prev) <
+@@ -1126,8 +1116,9 @@
+                         eth->params.f_tx_count += 1;
+                         eth->speed_test.b_tx += eth->speed_test.f_payload_size;
+                         eth->speed_test.b_tx_speed_prev += eth->speed_test.f_payload_size;
+-
+-                    } else {
++                    }
++                    else
++                    {
+ 
+                         if (errno != EAGAIN || errno != EWOULDBLOCK)
+                         {
+@@ -1134,14 +1125,12 @@
+                             perror("Speed test Tx error ");
+                             return;
+                         }
+-                        
+                     }
+-
+-
+                 }
+-
++            }
+             // Else there are no speed restrictions
+-            } else {
++            else
++            {
+ 
+                 tx_ret = send(eth->intf.sock_fd,
+                               eth->speed_test.f_payload,
+@@ -1153,8 +1142,9 @@
+                     eth->params.f_tx_count += 1;
+                     eth->speed_test.b_tx += eth->speed_test.f_payload_size;
+                     eth->speed_test.b_tx_speed_prev += eth->speed_test.f_payload_size;
+-
+-                } else {
++                }
++                else
++                {
+ 
+                     if (errno != EAGAIN || errno != EWOULDBLOCK)
+                     {

@@ -1,0 +1,16 @@
+pam_duo.conf
+.vagrant
+mhub*
+mspoke*
+test*
+bckup
+hub/fog
+fog_service
+common/check_ipsec.sh
+*-log
+isos
+*_delete
+*_status
+*ctl
+fail2ban
+.vscode

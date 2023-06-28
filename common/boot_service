@@ -1,0 +1,556 @@
+#!/bin/bash
+
+# boot_service
+# Purpose: start the EL2W services necessary for the remote booting service on a server (hub)
+
+USAGE="Syntax: boot_service (start|stop|publish|unpublish|status|help) \n
+		\t-m <EL2W port> \n
+		\t-r <hub|spoke> \n
+		\t-b <bridge to connect EL2W service to> \n
+		\t-I <IP addr for EL2W port> \n
+		\t-P <IP address for HTTP proxy> \n
+		\t-R <root DNS server for EL2W services> \n
+		\t-D <IP address for local DNS resolv.conf> \n
+		\t-C <Squid proxy cache peer>"
+
+SUBCOMMAND=$1
+
+if [ -z $SUBCOMMAND ] || [ $SUBCOMMAND == "help" ] || [ $SUBCOMMAND == "-h" ]; then
+  echo -e $USAGE
+  exit 0
+fi
+
+export PATH=/vagrant_data:$PATH
+
+# Start EL2W service on EL2W PORT
+LOCAL_DNS=192.7.7.4
+ROOT_DNS=192.7.7.4
+
+# Process options for create operation
+shift
+while getopts "m:r:b:I:D:R:C:P:" option; do
+  case "$option" in
+  m) MPORT=${OPTARG} ;;
+  r) VAGRANT_ROLE=${OPTARG} ;;
+  b) BRIDGE=${OPTARG} ;;
+  I) LOCALIP=${OPTARG} ;;
+  D) LOCAL_DNS=${OPTARG} ;;
+  R) ROOT_DNS=${OPTARG} ;;
+  C) SQUID_CACHE_PEER=${OPTARG} ;;
+  P) LOCAL_PROXY=${OPTARG} ;;
+  ?) echo -e $USAGE && exit 0 ;;
+  esac
+done
+
+if [ -z $MPORT ]; then
+  echo "EL2W service port name missing."
+  exit 1
+fi
+
+if [ -z $VAGRANT_ROLE ]; then
+  echo "Boot service role (hub or spoke) is missing."
+  exit 1
+fi
+
+if [ -z $BRIDGE ]; then
+  echo "Bridge name is missing."
+  exit 1
+fi
+
+if [ -z $LOCALIP ]; then
+  echo "Local IP Addr for EL2W interface is missing."
+  exit 1
+fi
+
+if [ -z $LOCAL_DNS ]; then
+  echo "IP Addr local DNS address for resolv.conf missing."
+  exit 1
+fi
+
+if [ -z $ROOT_DNS ]; then
+  echo "IP Addr for root DNS address for EL2W services missing."
+  exit 1
+fi
+
+if [ -z $SQUID_CACHE_PEER ]; then
+  echo "IP address for SQUID cache peer for EL2W services missing."
+  exit 1
+fi
+
+# 1. Ensure EL2W port status is in the correct state
+# 1.a Check EL2W service status to ensure it is ready and in the correct state
+
+export EL2W_STATUS=/var/EL2W
+
+# EL2W port X status in /var/EL2W/ports/X
+export EL2W_STATE_DIR=/var/EL2W
+export EL2W_STATUS=$EL2W_STATE_DIR/status
+export EL2W_SERVICE=$EL2W_STATE_DIR/service/$MPORT
+mkdir -p $(dirname $EL2W_SERVICE)
+
+# Ensure EL2W system is running
+test -e $EL2W_STATUS
+if [[ $? == 1 ]]; then
+  echo "EL2W infrastructure had not been established. Exiting."
+  exit 1
+fi
+
+if [[ $(cat $EL2W_STATUS | grep -v "State-Up") ]]; then
+  echo "EL2W infrastructure is not running. Exiting."
+  exit 1
+fi
+
+# Process subcommands
+case "$SUBCOMMAND" in
+
+"status")
+  echo "Status"
+  cat $EL2W_SERVICE
+  exit 0
+  ;;
+
+"start")
+  echo "Start"
+
+  if [[ $(cat $EL2W_SERVICE | grep "S-Up") ]]; then
+    echo "Service port is already up."
+    exit 0
+  fi
+
+  if [[ $(cat $EL2W_SERVICE | grep "S-Dn") ]]; then
+    echo "Restarting from state S-Dn."
+  fi
+
+  echo "Start" >$EL2W_SERVICE
+
+  # 2. Check EL2W service prereqs for this service (state S-PR)
+  # Ensure packages are installed - if not, install them
+  # be aware of serial ordering constraints
+
+  # dnsmasq dnsmasq-utils tftp-server tftp syslinux-tftpboot for dnsmasq and tftp service
+  # ipxe-bootimgs xz-devel syslinux for ipxe build
+  # supervisor git squid php wget for webserver and squid cache
+  rpm -q dnsmasq dnsmasq-utils tftp-server tftp syslinux-tftpboot ipxe-bootimgs xz-devel syslinux squid php wget inotify-tools
+  if [[ $? != 0 ]]; then
+    echo "Package(s) missing. Installing required packages."
+    yum -y install dnsmasq dnsmasq-utils tftp tftp-server syslinux-tftpboot ipxe-bootimgs xz-devel syslinux squid php wget inotify-tools
+  else
+    echo "Required packages installed."
+  fi
+
+  echo "S-PR Service requisites verified" >$EL2W_SERVICE
+
+  # 3. Create configuraion files (S-LC)
+  # configure service config files; this would need to be done in the specific service script - be aware of serial ordering constraints.
+  echo "S-LC Create configuration files" >$EL2W_SERVICE
+
+  # Create boot service port
+  # Create internal OVS port to attach service to.
+  ovs-vsctl add-port $BRIDGE $MPORT -- set interface $MPORT type=internal
+  if [ $? != 0 ]; then
+    echo "Error adding new port to bridge."
+    exit 1
+  fi
+
+  # 4. Start process that uses the EL2W port (vxlan0)
+  # start processes; this is done in the specific service script - be aware of serial ordering constraints (S-SA Start Attempt -> S-Up Service Up) - where is state maintained?
+  echo "S-SA Start service attempt" >$EL2W_SERVICE
+
+  # Start with service unpublished.
+  ovs-ofctl add-flow $BRIDGE in_port=$MPORT,action=drop
+
+  if [ $? != 0 ]; then
+    echo "Error calling add-flow to unpublish service."
+    exit 1
+  fi
+
+  # Attach service and ensure it is running.
+  ip link set up dev $MPORT
+  ip addr add $LOCALIP/24 dev $MPORT # DHCP parameters need to match the IP of this adapter
+  if [ $? != 0 ]; then
+    echo "Error bringing up new port link"
+    exit 1
+  fi
+  ifconfig $MPORT mtu 1388 up # reduce the MTU on boot interface to leave room for ipsec protocol
+
+  # Set up iPXE on DNSmasq server
+  if [[ $VAGRANT_ROLE == "hub" ]]; then
+    # create patched ipxe with HTTP proxy support
+    # 2.b ipxe and patches for http_proxy
+    test -e /vagrant_data/ipxe/src/bin/undionly.kpxe
+    if [[ $? != 0 ]]; then
+      cd /vagrant_data
+      git clone https://github.com/ipxe/ipxe.git
+      cd /vagrant_data/ipxe
+      patch -p1 </vagrant_data/boot_service_conf/ipxe.patch
+
+      cp /vagrant_data/boot_service_conf/embedded.pxe src/embedded.pxe
+      cd src
+      echo "#define DOWNLOAD_PROTO_NFS" >>config/local/general.h
+      echo "#define PING_CMD" >>config/local/general.h
+      make EMBED=embedded.pxe -j 4
+      make EMBED=embedded.pxe -j 4 bin-x86_64-efi/ipxe.efi
+    fi
+    cp /vagrant_data/ipxe/src/bin/undionly.kpxe /var/lib/tftpboot
+    cp /vagrant_data/ipxe/src/bin-x86_64-efi/ipxe.efi /var/lib/tftpboot
+  fi
+
+  if [[ $VAGRANT_ROLE == "hub" ]]; then
+    # mkdir /tmp/isos for downloading ISO images
+    if [ ! -d /tmp/isos ]; then
+      mkdir -p /tmp/isos
+    fi
+    # Retrieve and prepare TrueNAS image for use for NFS export and booting
+    echo "/truenas *(rw,insecure,no_root_squash)" >/etc/exports
+    TRUENAS_ISO=/tmp/isos/truenas.iso
+    TRUENAS_URL=https://download.freenas.org/13.0/STABLE/U3/x64/TrueNAS-13.0-U3.iso
+    if [ ! -f $TRUENAS_ISO ]; then
+      wget --progress=bar:force:noscroll $TRUENAS_URL -O $TRUENAS_ISO
+    fi
+    mkdir /tnbuild && mkdir /truenas
+    mount -ro loop $TRUENAS_ISO /tnbuild
+    cd /tnbuild && cp -r . /truenas
+    cd /truenas/TrueNAS/Packages/
+    tar xf base-os*.tgz -C /truenas --warning=no-unknown-keyword
+    tar xf freebsd*.tgz -C /truenas --warning=no-unknown-keyword
+    tar xf freenas*.tgz -C /truenas --warning=no-unknown-keyword
+
+    # Retrieve and prepare FreeNAS image for use for NFS export and booting
+    echo "/freenas *(rw,insecure,no_root_squash)" >>/etc/exports
+    FREENAS_ISO=/tmp/isos/freenas.iso
+    FREENAS_URL=https://download.freenas.org/11.3/STABLE/RELEASE/x64/FreeNAS-11.3-RELEASE.iso
+    if [ ! -f $FREENAS_ISO ]; then
+      wget ---progress=bar:force:noscroll $FREENAS_URL -O $FREENAS_ISO
+    fi
+    mkdir /fnbuild && mkdir /freenas
+    mount -ro loop $FREENAS_ISO /fnbuild
+    cd /fnbuild && cp -r . /freenas
+    cd /freenas/FreeNAS/Packages/
+    tar xf base-os*.tgz -C /freenas --warning=no-unknown-keyword
+    tar xf freebsd*.tgz -C /freenas --warning=no-unknown-keyword
+    tar xf freenas*.tgz -C /freenas --warning=no-unknown-keyword
+    tar xf FreeNASUI*.tgz -C /freenas --warning=no-unknown-keyword
+
+    # Retrieve and prepare Centos8 ISO for use to create local HTTP cache
+    CENTOS_ISO=/tmp/isos/centos8.iso
+    CENTOS_URL=https://ftp.ussg.iu.edu/linux/centos/8-stream/isos/x86_64/CentOS-Stream-8-x86_64-latest-dvd1.iso
+    if [ ! -f $CENTOS_ISO ]; then
+      wget --progress=bar:force:noscroll $CENTOS_URL -O $CENTOS_ISO
+    fi
+    mkdir /centos8 && mkdir -p /var/www/centos8/x86_64/
+    mount -ro loop $CENTOS_ISO /centos8/
+    cd /centos8 && cp -r . /var/www/centos8/x86_64
+    cp /vagrant_data/boot_service_conf/ks-centos8.cfg /var/www/ks-centos8.cfg
+
+    # Retrieve and prepare Rocky ISO for use to create local HTTP cache
+    ROCKY_ISO=/tmp/isos/rocky.iso
+    ROCKY_URL=https://download.rockylinux.org/pub/rocky/8/isos/x86_64/Rocky-x86_64-dvd.iso
+    if [ ! -f $ROCKY_ISO ]; then
+      wget --progress=bar:force:noscroll $ROCKY_URL -O $ROCKY_ISO
+    fi
+    mkdir /rocky && mkdir -p /var/www/rocky/x86_64/
+    mount -ro loop $ROCKY_ISO /rocky
+    cd /rocky && cp -r . /var/www/rocky/x86_64/
+    cp /vagrant_data/boot_service_conf/ks-rocky.cfg /var/www/ks-rocky.cfg
+
+    # Retrieve and prepare pfSense image for use for NFS export and booting
+    echo "/pfs *(rw,insecure,no_root_squash)" >>/etc/exports
+    PFS_ISO=/tmp/isos/pfsense.iso
+    PFS_ISO_GZ=/tmp/isos/pfsense.iso.gz
+    PFS_URL=https://snapshots.netgate.com/amd64/pfSense_master/installer/pfSense-CE-2.7.0-DEVELOPMENT-amd64-latest.iso.gz
+    if [ ! -f $PFS_ISO_GZ ]; then
+      wget --progress=bar:force:noscroll $PFS_URL -O $PFS_ISO_GZ
+    fi
+    gunzip -f -c $PFS_ISO_GZ >$PFS_ISO
+    if [ $? != 0 ]; then
+      echo "gunzip failed"
+      exit 1
+    fi
+    mkdir /pfs_build && mkdir /pfs
+    mount -ro loop $PFS_ISO /pfs_build
+    cd /pfs_build && cp -r . /pfs
+    sed -E -i 's:^:#:g' /pfs/etc/fstab
+    if [[ $? != 0 ]]; then
+      echo "sed for pfSense failed."
+      exit 1
+    fi
+
+    # wget --progress=bar:force:noscroll https://snapshots.netgate.com/amd64/pfSense_master/installer/pfSense-CE-2.7.0-DEVELOPMENT-amd64-latest.iso.gz.sha256
+    # TMPNAME=$(cat pfSense-CE-2.7.0-DEVELOPMENT-amd64-latest.iso.gz.sha256 | awk '{printf "%s\n", $2}' | sed s\/'[()]'//g)
+    # ln -f -s pfSense-CE-2.7.0-DEVELOPMENT-amd64-latest.iso.gz $TMPNAME
+    # sha256sum -c pfSense-CE-2.7.0-DEVELOPMENT-amd64-latest.iso.gz.sha256
+    # if [ $? != 0 ]; then
+    #   echo "pfSense iso does not match checksum"
+    #   exit 1
+    # fi
+
+  fi
+
+  # 2.c verify firewall/ebtables prereqs present
+  firewall-cmd --permanent --zone=juno --get-description
+  if [[ $? != 0 ]]; then
+    firewall-cmd --new-zone=juno --permanent
+    firewall-cmd --reload
+  fi
+
+  firewall-cmd --query-interface=$MPORT --zone=juno --permanent
+  if [[ $? != 0 ]]; then
+    firewall-cmd --add-interface=$MPORT --zone=juno --permanent
+  fi
+
+  firewall-cmd --zone=juno --query-service dhcp --permanent
+  if [[ $? != 0 ]]; then
+    firewall-cmd --zone=juno --add-service dhcp --permanent
+  fi
+
+  firewall-cmd --zone=juno --query-service tftp --permanent
+  if [[ $? != 0 ]]; then
+    firewall-cmd --zone=juno --add-service tftp --permanent
+  fi
+
+  firewall-cmd --zone=juno --query-service dns --permanent
+  if [[ $? != 0 ]]; then
+    firewall-cmd --zone=juno --add-service dns --permanent
+  fi
+
+  firewall-cmd --zone=juno --query-service http --permanent
+  if [[ $? != 0 ]]; then
+    firewall-cmd --zone=juno --add-service http --permanent
+  fi
+
+  firewall-cmd --zone=juno --query-service squid --permanent
+  if [[ $? != 0 ]]; then
+    firewall-cmd --zone=juno --add-service squid --permanent
+  fi
+
+  firewall-cmd --zone=juno --query-port 3130/udp --permanent
+  if [[ $? != 0 ]]; then
+    firewall-cmd --zone=juno --add-port 3130/udp --permanent
+  fi
+
+  firewall-cmd --zone=juno --add-service={nfs,rpc-bind,mountd} --permanent
+  firewall-cmd --zone=juno --add-port=2049/udp --permanent
+
+  firewall-cmd --reload
+
+  echo "S-PR Prequsites verfied" >$PORT_STATUS
+
+  # 3. Create configuraion files (S-LC)
+  # configure service config files; this would need to be done in the specific service script - be aware of serial ordering constraints.
+  if [[ $VAGRANT_ROLE == "hub" ]]; then
+    # Configure Kickstart file, and pxeboot menu php script for remote booting
+    cp /vagrant_data/boot_service_conf/ks-centos7.cfg /var/www/ks-centos7.cfg
+    cp /vagrant_data/boot_service_conf/boot_options.php /var/www/boot_options.php
+    cp /vagrant_data/boot_service_conf/dhcp_opt.php /var/www/dhcp_opt.php
+
+    # Configure NFS server
+    cp /etc/nfs.conf /etc/nfs.conf.backup
+    sed -i 's:# tcp=y:udp=y\ntcp=y:' /etc/nfs.conf
+  fi
+
+  # SQUID cache setup
+  cp /etc/squid/squid.conf /etc/squid/squid.conf.backup
+  sed -i '$d' /etc/squid/squid.conf
+  echo "refresh_pattern . 60 20% 4320" >>/etc/squid/squid.conf
+  sed -i "s:\#cache_dir ufs /var/spool/squid 100 16 256:cache_dir ufs /var/spool/squid 100000 16 256:" /etc/squid/squid.conf
+  echo "maximum_object_size 40 GB" >>/etc/squid/squid.conf
+  echo "acl localnet src 192.7.0.0/16   # RFC1918 possible internal network" >>/etc/squid/squid.conf
+  sed -i "s/http_port 3128/http_port ${LOCALIP}:3128/" /etc/squid/squid.conf
+
+  echo "icp_port 3130" >>/etc/squid/squid.conf
+  echo "icp_access allow localnet" >>/etc/squid/squid.conf
+  squid -z
+
+  echo "S-LC Service configuration files created." >$EL2W_SERVICE
+
+  echo "S-SA Service start attempt." >$EL2W_SERVICE
+
+  # 4. Start process that uses the EL2W port (vxlan0)
+  # start processes; this is done in the specific service script
+  # - be aware of serial ordering constraints (S-SA Start Attempt -> S-Up Service Up) - where is state maintained?
+  if [[ $VAGRANT_ROLE == "hub" ]]; then
+    # jumphost was masking DNS that refers requests to main server
+
+    # Start the PHP built-in HTTP server and write logs to php-server.log file
+    php -S 0.0.0.0:80 -t /var/www/ >>/var/log/php-server.log 2>&1 &
+
+    # Create sepolicy for this...
+    mkdir /var/dhcpopts
+    touch /var/dhcpopts/dhcpopts
+
+    # Next two lines selinux provides php access to /var/dhcopts/dhcopts
+    semanage fcontext --add -t httpd_sys_rw_content_t /var/dhcpopts/dhcpopts
+    restorecon -v /var/dhcpopts/dhcpopts
+
+    cp /etc/supervisord.conf /etc/supervisord.conf.backup
+    cat /vagrant_data/supervisor_conf/reload-dhcpopts >>/etc/supervisord.conf
+
+    # Check is supervisord is already running XYZZY
+    systemctl is-active --quiet supervisord
+    # systemctl stop supervisord; systemctl start supervisord
+    if [[ $? != 0 ]]; then
+      systemctl start supervisord
+    else
+      supervisorctl update reload-dhcpopts
+      supervisorctl status reload-dhcpopts
+      if [[ $? != 0 ]]; then
+        supervisorctl start reload-dhcpopts
+      fi
+    fi
+
+    dnsmasq --enable-tftp \
+      --tftp-no-fail \
+      --tftp-unique-root \
+      --tftp-root=/var/lib/tftpboot \
+      --interface=boot -z \
+      --dhcp-range=192.7.7.30,192.7.7.35,255.255.255.0 \
+      --dhcp-boot=net:UEFI,ipxe.efi \
+      --dhcp-boot=net:BIOS,undionly.kpxe \
+      --address=/juno.load/192.7.7.4 \
+      --address=/juno-proxy.load/192.7.7.4 \
+      --server=8.8.4.4 \
+      --pid-file=/var/run/dnsmasq.pid \
+      --dhcp-vendorclass=BIOS,PXEClient:Arch:00000 \
+      --dhcp-vendorclass=UEFI,PXEClient:Arch:00007 \
+      --dhcp-optsfile=/var/dhcpopts/dhcpopts \
+      --dhcp-vendorclass=set:mars,mars \
+      --dhcp-userclass=set:mars,mars \
+      --dhcp-option=tag:mars,6,192.7.7.12 \
+      --dhcp-vendorclass=set:venus,venus \
+      --dhcp-userclass=set:venus,venus \
+      --dhcp-option=tag:venus,6,192.7.7.11 \
+      --dhcp-vendorclass=set:earth,earth \
+      --dhcp-userclass=set:earth,earth \
+      --dhcp-option=tag:earth,6,192.7.7.10 \
+      --dhcp-option=tag:!mars,tag:!venus,tag:!earth,6,192.7.7.4 \
+      --log-queries \
+      --log-facility=/var/log/dnsmasq.log
+
+    # Start NFS services
+    systemctl start nfs-server.service
+    systemctl start nfs-mountd.service
+    exportfs -a
+
+    # turn on full NFS debugging to /var/log/messages
+    rpcdebug -m nfsd all
+
+    # umount and remove the temporary build dir
+    umount /tnbuild && rm -rf /tnbuild
+    umount /fnbuild && rm -rf /fnbuild
+    umount /centos8 && rm -rf /centos8
+    umount /rocky && rm -rf /rocky
+    umount /pfs_build && rm -rf /pfs_build && rm -f $PFS_ISO
+  fi
+
+  if [[ $VAGRANT_ROLE == "spoke" ]]; then
+    echo "cache_peer $SQUID_CACHE_PEER parent 3128 3130 default" >>/etc/squid/squid.conf
+    dnsmasq --interface=$MPORT --address=/juno.load/$SQUID_CACHE_PEER --address=/juno-proxy.load/$LOCAL_PROXY --server=$ROOT_DNS
+  fi
+
+  echo "nameserver $LOCAL_DNS" >/etc/resolv.conf
+
+  systemctl enable squid
+  systemctl start squid
+
+  # 5.  check correctness and correct operating of the service;  - how can I check this?
+  # what needs to be confirmed: service is running; service is connected to the vxlan adapter; service responds to requests
+  # Check dnmasq, and squid
+
+  ps -eaf | grep dnsmasq | grep -v grep
+  if [[ $? != 0 ]]; then
+    echo "dnsmasq not running."
+    exit 1
+  fi
+
+  systemctl status squid
+  if [[ $? != 0 ]]; then
+    echo "Squid not running."
+    exit 1
+  fi
+
+  echo "S-Up Service Up" >$EL2W_SERVICE
+
+  echo "S-Sec Service Unpublished" >$EL2W_SERVICE
+
+  # Publish service
+
+  ovs-ofctl del-flows $BRIDGE in_port=$MPORT
+  if [ $? != 0 ]; then
+    echo "Error calling del-flow to publish service."
+    exit 1
+  fi
+
+  echo "S-Pub Service published" >$EL2W_SERVICE
+
+  exit 0
+  ;;
+
+"stop")
+  echo "Stop"
+
+  # unpublish service
+  ovs-ofctl add-flow $BRIDGE in_port=$MPORT,action=drop
+  if [ $? != 0 ]; then
+    echo "Error calling add-flow to unpublish service."
+    exit 1
+  fi
+
+  echo "S-Sec Service Unpublished" >$EL2W_SERVICE
+
+  phpserverpid=$(lsof -n -i :80 | grep LISTEN | awk '{print $2}')
+  if [ $phpserverpid ]; then
+    kill -9 $phpserverpid
+    if [ $? != 0 ]; then
+      echo "Error stopping php http server to unpublish service."
+      exit 1
+    fi
+  else
+    echo "Http service not found, php internal server not started."
+  fi
+
+  supervisorctl stop reload-dhcpopts
+  systemctl stop squid
+  systemctl stop nfs-mountd.service
+  systemctl stop nfs-server.service
+
+  cp /etc/nfs.conf.backup /etc/nfs.conf
+  cp /etc/squid/squid.conf.backup /etc/squid/squid.conf
+  cp /etc/supervisord.conf.backup /etc/supervisord.conf
+
+  ovs-vsctl del-port $BRIDGE $MPORT
+
+  echo "S-Dn Service Down" >$EL2W_SERVICE
+  exit 0
+  ;;
+
+"unpublish")
+  echo "Unpublish"
+  # unpublish service
+  ovs-ofctl add-flow $BRIDGE in_port=$MPORT,action=drop
+
+  if [ $? != 0 ]; then
+    echo "Error calling add-flow to unpublish service."
+    exit 1
+  fi
+
+  echo "S-Sec Service Unpublished" >$EL2W_SERVICE
+  exit 0
+  ;;
+
+"publish")
+  echo "Publish"
+
+  # Publish service
+
+  ovs-ofctl del-flows $BRIDGE in_port=$MPORT
+
+  if [ $? != 0 ]; then
+    echo "Error calling del-flow to publish service."
+    exit 1
+  fi
+
+  echo "S-Pub Service published" >$EL2W_SERVICE
+  exit 0
+  ;;
+
+esac

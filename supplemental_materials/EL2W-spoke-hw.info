@@ -1,0 +1,53 @@
+H/W path           Device          Class          Description
+=============================================================
+                                   system         OptiPlex 7040 (06B9)
+/0                                 bus            0Y7WYT
+/0/0                               memory         64KiB BIOS
+/0/14                              memory         128KiB L1 cache
+/0/15                              memory         128KiB L1 cache
+/0/16                              memory         1MiB L2 cache
+/0/17                              memory         8MiB L3 cache
+/0/18                              processor      Intel(R) Core(TM) i7-6700 CPU @ 3.40GHz
+/0/19                              memory         16GiB System Memory
+/0/19/0                            memory         8GiB DIMM DDR4 Synchronous 2133 MHz (0.5 ns)
+/0/19/1                            memory         8GiB DIMM DDR4 Synchronous 2133 MHz (0.5 ns)
+/0/19/2                            memory         [empty]
+/0/19/3                            memory         [empty]
+/0/100                             bridge         Xeon E3-1200 v5/E3-1500 v5/6th Gen Core Processor Host Bridge/DRAM Registers
+/0/100/1                           bridge         Xeon E3-1200 v5/E3-1500 v5/6th Gen Core Processor PCIe Controller (x16)
+/0/100/2                           display        HD Graphics 530
+/0/100/14                          bus            100 Series/C230 Series Chipset Family USB 3.0 xHCI Controller
+/0/100/14/0        usb1            bus            xHCI Host Controller
+/0/100/14/0/7                      input          USB Keyboard
+/0/100/14/1        usb2            bus            xHCI Host Controller
+/0/100/14.2                        generic        100 Series/C230 Series Chipset Family Thermal Subsystem
+/0/100/16                          communication  100 Series/C230 Series Chipset Family MEI Controller #1
+/0/100/16.3                        communication  100 Series/C230 Series Chipset Family KT Redirection
+/0/100/17                          storage        SATA Controller [RAID mode]
+/0/100/1b                          bridge         100 Series/C230 Series Chipset Family PCI Express Root Port #17
+/0/100/1b/0                        storage        Sandisk Corp
+/0/100/1b/0/0      /dev/nvme0      storage        WDS500G3X0C-00SJG0
+/0/100/1b/0/0/1    /dev/nvme0n1    disk           500GB NVMe namespace
+/0/100/1b/0/0/1/1  /dev/nvme0n1p1  volume         1074MiB Windows FAT volume
+/0/100/1b/0/0/1/2  /dev/nvme0n1p2  volume         464GiB EXT4 volume
+/0/100/1c                          bridge         100 Series/C230 Series Chipset Family PCI Express Root Port #1
+/0/100/1c/0                        bridge         XIO2001 PCI Express-to-PCI Bridge
+/0/100/1f                          bridge         Q170 Chipset LPC/eSPI Controller
+/0/100/1f.2                        memory         Memory controller
+/0/100/1f.3                        multimedia     100 Series/C230 Series Chipset Family HD Audio Controller
+/0/100/1f.4                        bus            100 Series/C230 Series Chipset Family SMBus
+/0/100/1f.6        enp0s31f6       network        Ethernet Connection (2) I219-LM
+/0/1                               system         PnP device PNP0c02
+/0/2                               communication  PnP device PNP0501
+/0/3                               input          PnP device PNP0303
+/0/4                               input          PnP device PNP0f03
+/0/5                               system         PnP device PNP0c02
+/0/6                               system         PnP device PNP0c02
+/0/7                               system         PnP device PNP0b00
+/0/8                               generic        PnP device INT3f0d
+/0/9                               system         PnP device PNP0c02
+/0/a                               system         PnP device PNP0c02
+/0/b                               system         PnP device PNP0c02
+/0/c                               system         PnP device PNP0c02
+/0/d               scsi1           storage        
+/0/d/0.0.0         /dev/cdrom      disk           DVD+-RW GU90N
