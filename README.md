@@ -41,9 +41,9 @@ This repository contains the source code and scripts implementation of our paper
     └── README.md                   # readme
 
 ### Special notes: The software we used as a part of our system: Etherrate, iPXE, and a patch we modified that was authored by Oliver Chirossel, are available at the following links:  
-- The Etherate tool source code is avaiable at: [https://github.com/jwbensley/Etherate](https://github.com/jwbensley/Etherate)
+- The Etherate tool source code by Bensley is avaiable at: [https://github.com/jwbensley/Etherate](https://github.com/jwbensley/Etherate)
 - The iPXE source code is avaiable at: [https://github.com/ipxe/ipxe.git](https://github.com/ipxe/ipxe.git)
-- The iPXE patch is retrived and modified from: [https://lists.ipxe.org/pipermail/ipxe-devel/2016-December/005292.html](https://lists.ipxe.org/pipermail/ipxe-devel/2016-December/005292.html)
+- The iPXE patch created by Chirossel is retrived and modified from: [https://lists.ipxe.org/pipermail/ipxe-devel/2016-December/005292.html](https://lists.ipxe.org/pipermail/ipxe-devel/2016-December/005292.html)
 
 ## Get started
 To set up and test EL2W service, two machines with VirtualBox and Vagrant is needed.
