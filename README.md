@@ -1,6 +1,6 @@
 # EL2W: Extended Layer 2 Services for Bare-Metal Provisioning Over WAN
 
-This repository contains the source code and scripts implementation of our paper. [Link](#)
+This repository contains the source code and scripts implementation of our paper. [Paper link](https://ieeexplore.ieee.org/document/10207539)
 
     .
     ├── common                      # config files and scripts for both hub and spoke
